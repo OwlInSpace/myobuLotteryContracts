@@ -1,0 +1,22 @@
+{
+  "name": "myobu-lottery",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "npx hardhat test --network rinkeby",
+    "lint": "npx solhint contracts/myobuLottery.sol",
+    "pretty": "npx prettier --write 'contracts/myobuLottery.sol'",
+    "deployToTestnet": "npx hardhat run ./scripts/deploy.js --network rinkeby",
+    "deploy": "npx hardhat run ./scripts/deploy.js --network mainnet"
+  },
+  "author": "Myobu",
+  "license": "MIT",
+  "dependencies": {
+    "@nomiclabs/hardhat-etherscan": "^2.1.4",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "chai": "^4.3.4",
+    "prettier": "^2.3.2",
+    "prettier-plugin-solidity": "*",
+    "solhint": "^3.3.6"
+  }
+}
