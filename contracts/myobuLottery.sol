@@ -112,6 +112,28 @@ contract MyobuLottery is
     }
 
     /**
+     * @dev Make the lottery tickets untransferable
+     * So that nobody makes a new address, buys myobu and then sends the tickets to another address
+     * And then sells the myobu. And if he wins the lottery, it won't count it.
+     *
+     * While it could transfer the ticketsBought, that would make it so anyone can buy tickets, and
+     * send to someone else. And then if the person that it was sent to wins from their
+     * old lottery tickets, they wouldn't get the reward because not enough myobu to cover
+     * the new tickets that they have been sent
+     */
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256
+    ) internal pure override {
+        /// @dev Only mint or burn is allowed
+        require(
+            from == address(0) || to == address(0),
+            "MLT: Cannot transfer tickets"
+        );
+    }
+
+    /**
      * @return The amount of myobu that someone needs to hold to buy lottery tickets
      * @param user: The address
      * @param amount: The amount of tickets
@@ -133,7 +155,7 @@ contract MyobuLottery is
     }
 
     /**
-     * @dev Buys tickets with ETH, requires that he has at least (_minimumMyobuBalance) myobu,
+     * @dev Buys tickets with ETH, requires that he has at least (myobuNeededForTickets()) myobu,
      * and then loops over how much tickets he needs and mints the ERC721 tokens
      * If there is too much ETH sent, refund unneeded ETH
      * Emits TicketsBought()
@@ -162,7 +184,7 @@ contract MyobuLottery is
     }
 
     /**
-     * @dev Function to calculate the fees that will be taken
+     * @dev Function to calculate how much fees that will be taken
      * @return The amount of fees that will be taken
      * @param currentTokenID: The latest tokenID
      * @param ticketPrice: The price of 1 ticket
@@ -243,7 +265,7 @@ contract MyobuLottery is
     }
 
     /**
-     * @dev Gets a winner and sends him his amount won in $ETH, if failed send WETH, if he doesn't have myobu at the time of winning
+     * @dev Gets a winner and sends him the jackpot, if he doesn't have myobu at the time of winning
      * send the _feeReceiver the jackpot
      * Emits LotteryWon();
      */
