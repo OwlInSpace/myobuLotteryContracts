@@ -31,6 +31,7 @@ interface IMyobuLottery {
      * @param ticketFee: The percentage of the ticket price that is sent to the fee receiver
      * @param minimumMyobuBalance: The minimum amount of Myobu someone needs to buy tickets or get rewarded
      * @param percentageToKeepForNextLottery: The percentage that will be kept as reward for the next lottery
+     * @param myobuNeededForEachTicket: The amount of myobu that someone needs to hold for each ticket they buy
      */
     event LotteryCreated(
         uint256 lotteryID,
@@ -38,7 +39,8 @@ interface IMyobuLottery {
         uint256 ticketPrice,
         uint256 ticketFee,
         uint256 minimumMyobuBalance,
-        uint256 percentageToKeepForNextLottery
+        uint256 percentageToKeepForNextLottery,
+        uint256 myobuNeededForEachTicket
     );
 
     /**
@@ -64,6 +66,7 @@ interface IMyobuLottery {
      * @param ticketFee: The percentage of ticket sales that go to the _feeReceiver
      * @param minimumMyobuBalance: The minimum amount of myobu you need to buy tickets
      * @param percentageToKeepForNextLottery: The percentage of the jackpot to keep for the next lottery
+     * @param myobuNeededForEachTicket: The amount of myobu that someone needs to hold for each ticket they buy
      */
     struct Lottery {
         uint256 startingTokenID;
@@ -73,6 +76,7 @@ interface IMyobuLottery {
         uint256 ticketFee;
         uint256 minimumMyobuBalance;
         uint256 percentageToKeepForNextLottery;
+        uint256 myobuNeededForEachTicket;
     }
 
     /**
@@ -80,15 +84,50 @@ interface IMyobuLottery {
      */
     function buyTickets() external payable;
 
+    function ticketsBought(address user, uint256 lotteryID)
+        external
+        view
+        returns (uint256);
+
     /**
      * @return The amount of unclaimed fees, can be claimed using claimFees()
      */
     function unclaimedFees() external view returns (uint256);
 
     /**
+     * @return The amount of fees claimed for the current lottery
+     */
+    function claimedFees() external view returns (uint256);
+
+    /**
+     * @dev Function to calculate the fees that will be taken
+     * @return The amount of fees that will be taken
+     * @param currentTokenID: The latest tokenID
+     * @param ticketPrice: The price of 1 ticket
+     * @param ticketFee: The percentage of the ticket to take as a fee
+     * @param lastClaimedTokenID_: The last token ID that fees have been claimed for
+     */
+    function calculateFees(
+        uint256 currentTokenID,
+        uint256 ticketPrice,
+        uint256 ticketFee,
+        uint256 lastClaimedTokenID_
+    ) external pure returns (uint256);
+
+    /**
      * @dev Function that claims fees and sends to _feeReceiver.
      */
     function claimFees() external;
+
+    /**
+     * @return The amount of myobu that someone needs to hold to buy lottery tickets
+     * @param user: The address
+     * @param amount: The amount of tickets
+     */
+    function myobuNeededForTickets(address user, uint256 amount)
+        external
+        view
+        returns (uint256);
 
     /**
      * @dev Function that gets a random winner and sends the reward

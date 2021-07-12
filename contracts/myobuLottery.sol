@@ -43,6 +43,7 @@ contract MyobuLottery is
      * and waste all the LINK in the contract
      * _lotteryID: A counter of how much lotteries there have been, increases by 1 each new lottery
      * _lottery: A mapping of Lottery ID => The lottery struct that stores information
+     * _ticketsBought: A mapping of Address => Lottery ID => Amount of tickets bought
      */
     IERC20 private _myobu;
     // solhint-disable-next-line
@@ -56,6 +57,7 @@ contract MyobuLottery is
     bool private _inClaimReward;
     Counters.Counter private _lotteryID;
     mapping(uint256 => Lottery) private _lottery;
+    mapping(address => mapping(uint256 => uint256)) private _ticketsBought;
 
     /**
      * @dev Modifier that requires that there is no lottery ongoing (ended)
@@ -90,8 +92,9 @@ contract MyobuLottery is
         _chainlinkFee = 0.1e18;
         /// @dev So the owner can be able to start the lottery
         _rewardClaimed = true;
-        /// @dev Start token ID's at 1
+        /// @dev Start ID's at 1
         _tokenID = 1;
+        _lastClaimedTokenID = 1;
     }
 
     /**
@@ -109,6 +112,27 @@ contract MyobuLottery is
     }
 
     /**
+     * @return The amount of myobu that someone needs to hold to buy lottery tickets
+     * @param user: The address
+     * @param amount: The amount of tickets
+     */
+    function myobuNeededForTickets(address user, uint256 amount)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        uint256 minimumMyobuBalance = _lottery[_lotteryID.current()]
+        .minimumMyobuBalance;
+        uint256 myobuNeededForEachTicket = _lottery[_lotteryID.current()]
+        .myobuNeededForEachTicket;
+        uint256 ticketsBought_ = _ticketsBought[user][_lotteryID.current()];
+        uint256 _myobuNeededForTickets = (ticketsBought_ + amount) *
+            myobuNeededForEachTicket;
+        return minimumMyobuBalance + _myobuNeededForTickets;
+    }
+
+    /**
      * @dev Buys tickets with ETH, requires that he has at least (_minimumMyobuBalance) myobu,
      * and then loops over how much tickets he needs and mints the ERC721 tokens
      * If there is too much ETH sent, refund unneeded ETH
@@ -116,12 +140,11 @@ contract MyobuLottery is
      */
     function buyTickets() external payable override onlyOn {
         uint256 ticketPrice = _lottery[_lotteryID.current()].ticketPrice;
-        uint256 minimumMyobuBalance = _lottery[_lotteryID.current()]
-        .minimumMyobuBalance;
         uint256 amountOfTickets = msg.value / ticketPrice;
         require(amountOfTickets != 0, "MLT: Not enough ETH");
         require(
-            _myobu.balanceOf(_msgSender()) >= minimumMyobuBalance,
+            _myobu.balanceOf(_msgSender()) >=
+                myobuNeededForTickets(_msgSender(), amountOfTickets),
             "MLT: You don't have enough myobu"
         );
         uint256 neededETH = amountOfTickets * ticketPrice;
@@ -131,6 +154,7 @@ contract MyobuLottery is
         }
         uint256 tokenID = _tokenID;
         _tokenID += amountOfTickets;
+        _ticketsBought[_msgSender()][_lotteryID.current()] += amountOfTickets;
         for (uint256 i = tokenID; i < amountOfTickets + tokenID; i++) {
             _mint(_msgSender(), i);
         }
@@ -138,13 +162,47 @@ contract MyobuLottery is
     }
 
     /**
+     * @dev Function to calculate the fees that will be taken
+     * @return The amount of fees that will be taken
+     * @param currentTokenID: The latest tokenID
+     * @param ticketPrice: The price of 1 ticket
+     * @param ticketFee: The percentage of the ticket to take as a fee
+     * @param lastClaimedTokenID_: The last token ID that fees have been claimed for
+     */
+    function calculateFees(
+        uint256 currentTokenID,
+        uint256 ticketPrice,
+        uint256 ticketFee,
+        uint256 lastClaimedTokenID_
+    ) public pure override returns (uint256) {
+        uint256 unclaimedTicketSales = currentTokenID - lastClaimedTokenID_;
+        return ((unclaimedTicketSales * ticketPrice) * ticketFee) / 10000;
+    }
+
+    /**
      * @return The amount of unclaimed fees, can be claimed using claimFees()
      */
     function unclaimedFees() public view override returns (uint256) {
-        uint256 ticketFee = _lottery[_lotteryID.current()].ticketFee;
-        uint256 ticketPrice = _lottery[_lotteryID.current()].ticketPrice;
-        uint256 unclaimedTicketSales = _tokenID - _lastClaimedTokenID;
-        return ((unclaimedTicketSales * ticketPrice) * ticketFee) / 10000;
+        return
+            calculateFees(
+                _tokenID,
+                _lottery[_lotteryID.current()].ticketPrice,
+                _lottery[_lotteryID.current()].ticketFee,
+                _lastClaimedTokenID
+            );
+    }
+
+    /**
+     * @return The amount of fees taken for the current lottery
+     */
+    function claimedFees() public view override returns (uint256) {
+        return
+            calculateFees(
+                _tokenID,
+                _lottery[_lotteryID.current()].ticketPrice,
+                _lottery[_lotteryID.current()].ticketFee,
+                _lottery[_lotteryID.current()].startingTokenID
+            );
     }
 
     /**
@@ -159,7 +217,7 @@ contract MyobuLottery is
     }
 
     /**
-     * @dev Function that distributes the reward, requests for randomness, completes at fufillRandomness()
+     * @dev Function that distributes the reward, requests for randomness, completes at fulfillRandomness()
      * If nobody bought a ticket, makes rewardsClaimed true and returns nothing
      * Checks for _inClaimReward so that its not called more than once, wasting LINK.
      */
@@ -197,9 +255,8 @@ contract MyobuLottery is
         uint256 resultInRange = x + (randomness % (y - x));
         address winner = ownerOf(resultInRange);
         uint256 amountWon = jackpot();
-        uint256 minimumMyobuBalance = _lottery[_lotteryID.current()]
-        .minimumMyobuBalance;
-        if (_myobu.balanceOf(winner) < minimumMyobuBalance) {
+        uint256 myobuNeeded = myobuNeededForTickets(winner, 0);
+        if (_myobu.balanceOf(winner) < myobuNeeded) {
             /// @dev He sold his myobu, give the jackpot to the fee receiver.
             winner = _feeReceiver;
         }
@@ -215,15 +272,17 @@ contract MyobuLottery is
      * @param lotteryLength: How long the lottery will be in seconds
      * @param ticketPrice: The price of a ticket in ETH
      * @param ticketFee: The percentage of the ticket price that is sent to the fee receiver
-     * @param minimumMyobuBalance: The minimum amount of myobu someone needs to buy tickets or get the reward
      * @param percentageToKeepForNextLottery: The percentage that will be kept as reward for the lottery after
+     * @param minimumMyobuBalance: The minimum amount of myobu someone needs to buy tickets or get the reward
+     * @param myobuNeededForEachTicket: The amount of myobu that someone needs to hold for each ticket they buy
      */
     function createLottery(
         uint256 lotteryLength,
         uint256 ticketPrice,
         uint256 ticketFee,
+        uint256 percentageToKeepForNextLottery,
         uint256 minimumMyobuBalance,
-        uint256 percentageToKeepForNextLottery
+        uint256 myobuNeededForEachTicket
     ) external onlyOwner onlyEnded {
         /// @dev Cannot execute it now, must be executed seperately
         require(
@@ -253,7 +312,8 @@ contract MyobuLottery is
             ticketPrice,
             ticketFee,
             minimumMyobuBalance,
-            percentageToKeepForNextLottery
+            percentageToKeepForNextLottery,
+            myobuNeededForEachTicket
         );
         emit LotteryCreated(
             newLotteryID,
@@ -261,7 +321,8 @@ contract MyobuLottery is
             ticketPrice,
             ticketFee,
             minimumMyobuBalance,
-            percentageToKeepForNextLottery
+            percentageToKeepForNextLottery,
+            myobuNeededForEachTicket
         );
     }
 
@@ -271,11 +332,14 @@ contract MyobuLottery is
      */
     function jackpot() public view override returns (uint256) {
         uint256 balance = address(this).balance;
+        uint256 _unclaimedFees = unclaimedFees();
+        uint256 totalFees = claimedFees() + _unclaimedFees;
         uint256 percentageToKeepForNextLottery = _lottery[_lotteryID.current()]
         .percentageToKeepForNextLottery;
-        uint256 amountToKeepForNextLottery = (balance *
+        /// @dev Calculate from the total
+        uint256 amountToKeepForNextLottery = ((balance + totalFees) *
             percentageToKeepForNextLottery) / 10000;
-        return balance - amountToKeepForNextLottery - unclaimedFees();
+        return balance - amountToKeepForNextLottery - _unclaimedFees;
     }
 
     /**
@@ -341,6 +405,20 @@ contract MyobuLottery is
      */
     function lastClaimedTokenID() external view override returns (uint256) {
         return _lastClaimedTokenID;
+    }
+
+    /**
+     * @return The amount of tickets someone bought
+     * @param user: The address
+     * @param lotteryID: The ID of the lottery
+     */
+    function ticketsBought(address user, uint256 lotteryID)
+        external
+        view
+        override
+        returns (uint256)
+    {
+        return _ticketsBought[user][lotteryID];
     }
 
     /// @dev Getter functions : End
