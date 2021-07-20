@@ -324,7 +324,6 @@ contract MyobuLottery is
             claimFees();
         }
         /// @dev For the new lottery
-        delete _rewardClaimed;
         _lotteryID.increment();
         uint256 newLotteryID = _lotteryID.current();
         _lottery[newLotteryID] = Lottery(
@@ -337,6 +336,7 @@ contract MyobuLottery is
             percentageToKeepForNextLottery,
             myobuNeededForEachTicket
         );
+        delete _rewardClaimed;
         emit LotteryCreated(
             newLotteryID,
             lotteryLength,
