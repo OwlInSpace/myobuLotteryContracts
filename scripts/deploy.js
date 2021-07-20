@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  console.log("Deploying lottery contract..");
+  console.log("NOTE: Before deploying to mainnet: change the chainlink, myobu and WETH contract addresses\n\nDeploying lottery contract..");
   const Contract = await hre.ethers.getContractFactory("MyobuLottery");
   const contract = await Contract.deploy();
   console.log(`\nDeploy transaction: https://etherscan.io/tx/${contract.deployTransaction.hash}`);
