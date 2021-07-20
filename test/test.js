@@ -9,6 +9,7 @@ const clearLastLine = () => {
 var linkToken;
 var contract;
 var signer;
+let burn = "0x000000000000000000000000000000000000dEaD";
 
 var provider = ethers.getDefaultProvider("rinkeby", {
   infura: secrets.infuraApiKey,
@@ -29,7 +30,6 @@ ethers.getSigner().then((s) => {
 });
 
 describe("Contract deployment", function () {
-
   // Deloy the contract
   it("Deploy Contract", async function () {
     const Contract = await ethers.getContractFactory("MyobuLottery");
@@ -42,11 +42,9 @@ describe("Contract deployment", function () {
     let tx = await linkToken.transfer(contract.address, (1e18).toString());
     await tx.wait();
   });
-
 });
 
 describe("Test lottery 1", function () {
-
   it("Create lottery", async function () {
     let tx = await contract.createLottery(
       45,
@@ -54,7 +52,8 @@ describe("Test lottery 1", function () {
       1000,
       1000,
       1,
-      1
+      1, 
+      0
     );
     await tx.wait();
     expect(await contract.currentLotteryID()).to.equal(1);
@@ -63,42 +62,35 @@ describe("Test lottery 1", function () {
   // No lottery should be able to be created after one is in progress
   it("New lottery cannot be created after one is in progress", async function () {
     try {
-      await contract.createLottery(45, (0.05e18).toString(), 1000, 1000, 1, 1);
+      await contract.createLottery(45, (0.05e18).toString(), 1000, 1000, 1, 1, 0);
     } catch (e) {
       return;
     }
     throw new Error("Didn't revert");
   });
-  
+
   // Buys 11 tickets
   it("Buy 11 Tickets", async function () {
     let tx = await contract.buyTickets({ value: (0.55e18).toString() });
     await tx.wait();
-    expect(await contract.balanceOf(signer.address)).to.equal(
-      11 );
+    expect(await contract.balanceOf(signer.address)).to.equal(11);
   });
 
   it("Claim Fees", async function () {
-    let oldBalance = await provider.getBalance(
-      "0x000000000000000000000000000000000000dEaD"
-    );
+    let oldBalance = await provider.getBalance(burn);
     let tx = await contract.claimFees();
     await tx.wait();
     let expectedNumber = ethers.BigNumber.from((0.55e18 / 10).toString());
-    expect(
-      await provider.getBalance("0x000000000000000000000000000000000000dEaD")
-    ).to.equal(oldBalance.add(expectedNumber));
+    expect(await provider.getBalance(burn)).to.equal(
+      oldBalance.add(expectedNumber)
+    );
   });
 
   it("Claim Fees doesn't send more after all have been claimed", async function () {
-    let oldBalance = await provider.getBalance(
-      "0x000000000000000000000000000000000000dEaD"
-    );
+    let oldBalance = await provider.getBalance(burn);
     let tx = await contract.claimFees();
     await tx.wait();
-    expect(
-      await provider.getBalance("0x000000000000000000000000000000000000dEaD")
-    ).to.equal(oldBalance);
+    expect(await provider.getBalance(burn)).to.equal(oldBalance);
   });
 
   it("Claim Reward", async function () {
@@ -109,16 +101,16 @@ describe("Test lottery 1", function () {
   it("Claim Reward cannot be called again", async function () {
     try {
       await contract.claimReward();
-    }catch(e){
+    } catch (e) {
       return;
     }
     throw new Error("Did not revert");
-  })
+  });
 
   // Checks if ETH has been sent and enough has been kept for next lottery
   it("Reward is sent correctly", async function () {
-    // If the oracle takes more than 95 seconds, then it probably failed
-    this.timeout(95e3);
+    // If the oracle takes more than 120 seconds, then it probably failed
+    this.timeout(120e3);
     console.log("    ◌ Waiting for oracle response");
     let oldBalance = await provider.getBalance(signer.address);
     return new Promise((resolve) => {
@@ -147,16 +139,14 @@ describe("Test lottery 1", function () {
   it("Claim Reward cannot be called after reward is given", async function () {
     try {
       await contract.claimReward();
-    }catch(e){
+    } catch (e) {
       return;
     }
     throw new Error("Did not revert");
-  })
-
+  });
 });
 
 describe("Test lottery 2", function () {
-
   it("Start Lottery", async function () {
     let tx = await contract.createLottery(
       45,
@@ -192,9 +182,7 @@ describe("Test lottery 2", function () {
   it("Buy 1 ticket", async function () {
     let tx = await contract.buyTickets({ value: (0.05e18).toString() });
     await tx.wait();
-    expect(await contract.balanceOf(signer.address)).to.equal(
-      12
-    );
+    expect(await contract.balanceOf(signer.address)).to.equal(12);
   });
 
   it("Fail to buy tickets if not enough ETH is sent", async function () {
@@ -208,17 +196,15 @@ describe("Test lottery 2", function () {
 
   it("Fail if not enough myobu for ticket buy", async function () {
     try {
-      await contract.buyTickets({ value: 0.2e18.toString() });
+      await contract.buyTickets({ value: (0.2e18).toString() });
     } catch (e) {
       return;
     }
     throw new Error("Didn't revert");
   });
-
 });
 
 describe("Other functions", function () {
-
   it("Recover 0.8 LINK", async function () {
     let oldBalance = await linkToken.balanceOf(signer.address);
     let tx = await contract.recoverLINK((0.8e18).toString());
@@ -228,4 +214,12 @@ describe("Other functions", function () {
     );
   });
 
+  it("Fails on transfer", async function () {
+    try {
+      await contract.transferFrom(signer.address, burn, 1);
+    } catch (e) {
+      return;
+    }
+    throw new Error("Didn't revert");
+  });
 });

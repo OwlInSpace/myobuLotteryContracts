@@ -34,6 +34,4 @@ Testnet:
     npm run deployToTestnet
 Mainnet: 
 
-**Remember to change the WETH and ChainLink addresses before deploying to mainnet**
-
     npm run deploy

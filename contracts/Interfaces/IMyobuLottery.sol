@@ -32,6 +32,8 @@ interface IMyobuLottery {
      * @param minimumMyobuBalance: The minimum amount of Myobu someone needs to buy tickets or get rewarded
      * @param percentageToKeepForNextLottery: The percentage that will be kept as reward for the next lottery
      * @param myobuNeededForEachTicket: The amount of myobu that someone needs to hold for each ticket they buy
+     * @param percentageToKeepOnNotEnoughMyobu: If someone doesn't have myobu at the time of winning, this will define the 
+     * percentage of the reward that will be kept in the contract for the next lottery
      */
     event LotteryCreated(
         uint256 lotteryID,
@@ -40,7 +42,8 @@ interface IMyobuLottery {
         uint256 ticketFee,
         uint256 minimumMyobuBalance,
         uint256 percentageToKeepForNextLottery,
-        uint256 myobuNeededForEachTicket
+        uint256 myobuNeededForEachTicket,
+        uint256 percentageToKeepOnNotEnoughMyobu
     );
 
     /**
@@ -67,6 +70,8 @@ interface IMyobuLottery {
      * @param minimumMyobuBalance: The minimum amount of myobu you need to buy tickets
      * @param percentageToKeepForNextLottery: The percentage of the jackpot to keep for the next lottery
      * @param myobuNeededForEachTicket: The amount of myobu that someone needs to hold for each ticket they buy
+     * @param percentageToKeepOnNotEnoughMyobu: If someone doesn't have myobu at the time of winning, this will define the 
+     * percentage of the reward that will be kept in the contract for the next lottery
      */
     struct Lottery {
         uint256 startingTokenID;
@@ -77,6 +82,7 @@ interface IMyobuLottery {
         uint256 minimumMyobuBalance;
         uint256 percentageToKeepForNextLottery;
         uint256 myobuNeededForEachTicket;
+        uint256 percentageToKeepOnNotEnoughMyobu;
     }
 
     /**
