@@ -154,7 +154,8 @@ describe("Test lottery 2", function () {
       1000,
       1000,
       (100000000000e9).toString(),
-      (250000000000e9).toString()
+      (250000000000e9).toString(),
+      0
     );
     await tx.wait();
     expect(await contract.currentLotteryID()).to.equal(2);
