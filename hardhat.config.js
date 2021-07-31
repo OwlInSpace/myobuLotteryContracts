@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
+require('hardhat-abi-exporter');
 const secrets = require("./secrets.json");
 const config = require("./config.json");
 
@@ -36,6 +37,11 @@ module.exports = {
   {
     apiKey: secrets.etherscanApiKey
   },
+  abiExporter: {
+    path: './artifacts/build-info/abi',
+    flat: false,
+    spacing: 2
+  },  
   mocha: {
     "timeout": 250e3
   }

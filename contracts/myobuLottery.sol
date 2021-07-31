@@ -149,8 +149,8 @@ contract MyobuLottery is
         uint256 myobuNeededForEachTicket = _lottery[_lotteryID.current()]
         .myobuNeededForEachTicket;
         uint256 ticketsBought_ = _ticketsBought[user][_lotteryID.current()];
-        uint256 _myobuNeededForTickets = (ticketsBought_ + amount) *
-            myobuNeededForEachTicket;
+        uint256 totalTickets = (ticketsBought_ + amount) - 1;
+        uint256 _myobuNeededForTickets = totalTickets * myobuNeededForEachTicket;
         return minimumMyobuBalance + _myobuNeededForTickets;
     }
 
@@ -167,17 +167,17 @@ contract MyobuLottery is
         require(
             _myobu.balanceOf(_msgSender()) >=
                 myobuNeededForTickets(_msgSender(), amountOfTickets),
-            "MLT: You don't have enough myobu"
+            "MLT: You don't have enough $MYOBU"
         );
         uint256 neededETH = amountOfTickets * ticketPrice;
         /// @dev Refund unneeded eth
         if (msg.value > neededETH) {
             transferOrWrapETH(_msgSender(), msg.value - neededETH);
         }
-        uint256 tokenID = _tokenID;
+        uint256 tokenID_ = _tokenID;
         _tokenID += amountOfTickets;
         _ticketsBought[_msgSender()][_lotteryID.current()] += amountOfTickets;
-        for (uint256 i = tokenID; i < amountOfTickets + tokenID; i++) {
+        for (uint256 i = tokenID_; i < amountOfTickets + tokenID_; i++) {
             _mint(_msgSender(), i);
         }
         emit TicketsBought(_msgSender(), amountOfTickets, ticketPrice);
@@ -220,7 +220,7 @@ contract MyobuLottery is
     function claimedFees() public view override returns (uint256) {
         return
             calculateFees(
-                _tokenID,
+                _lastClaimedTokenID,
                 _lottery[_lotteryID.current()].ticketPrice,
                 _lottery[_lotteryID.current()].ticketFee,
                 _lottery[_lotteryID.current()].startingTokenID
@@ -358,18 +358,25 @@ contract MyobuLottery is
     }
 
     /**
+     * @dev Returns the amount of tokens to keep for the next lottery
+     */
+    function toNextLottery() public view override returns (uint256) {
+        uint256 percentageToKeepForNextLottery = _lottery[_lotteryID.current()]
+        .percentageToKeepForNextLottery;
+        uint256 totalFees = claimedFees();
+        return
+            ((address(this).balance + totalFees) *
+                percentageToKeepForNextLottery) / 10000;
+    }
+
+    /**
      * @return The current jackpot
      * @dev Balance - The percentage for the next lottery - Unclaimed Fees
      */
     function jackpot() public view override returns (uint256) {
         uint256 balance = address(this).balance;
         uint256 _unclaimedFees = unclaimedFees();
-        uint256 totalFees = claimedFees() + _unclaimedFees;
-        uint256 percentageToKeepForNextLottery = _lottery[_lotteryID.current()]
-        .percentageToKeepForNextLottery;
-        /// @dev Calculate from the total
-        uint256 amountToKeepForNextLottery = ((balance + totalFees) *
-            percentageToKeepForNextLottery) / 10000;
+        uint256 amountToKeepForNextLottery = toNextLottery();
         return balance - amountToKeepForNextLottery - _unclaimedFees;
     }
 
@@ -407,6 +414,13 @@ contract MyobuLottery is
      */
     function currentLotteryID() external view override returns (uint256) {
         return _lotteryID.current();
+    }
+
+    /**
+     * @dev The current token ID
+     */
+    function tokenID() external view override returns (uint256) {
+        return _tokenID;
     }
 
     /**
@@ -461,21 +475,24 @@ contract MyobuLottery is
         LINK.transfer(_msgSender(), amount);
     }
 
+    /// @dev Optional functions, commented out by default
+
     /**
      * @dev In case the Myobu token gets changed later on, the owner can call this to change it
      * @param newMyobu: The new myobu token contract
-     */
     function setMyobu(IERC20 newMyobu) external onlyOwner {
         _myobu = newMyobu;
     }
+     */
+
 
     /**
      * @dev Sets the address that receives all the fees
      * @param newFeeReceiver: The new address that will recieve all the fees
-     */
     function setFeeReceiver(address newFeeReceiver) external onlyOwner {
         _feeReceiver = newFeeReceiver;
     }
+     */
 
     /**
      * @dev Changes the chainlink VRF oracle fee in case it needs to be changed later on

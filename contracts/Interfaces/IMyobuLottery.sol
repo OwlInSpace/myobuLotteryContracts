@@ -141,6 +141,11 @@ interface IMyobuLottery {
     function claimReward() external returns (bytes32 requestId);
 
     /**
+     * @dev Returns the amount of tokens to keep for the next lottery
+     */
+    function toNextLottery() external view returns (uint256);
+
+    /**
      * @return The current jackpot
      */
     function jackpot() external view returns (uint256);
@@ -164,6 +169,11 @@ interface IMyobuLottery {
      * @return A counter of how much lotteries there have been, increases by 1 each new lottery.
      */
     function currentLotteryID() external view returns (uint256);
+
+    /**
+     * @return The current token ID
+     */
+    function tokenID() external view returns (uint256);
 
     /**
      * @return The info of a lottery (The Lottery Struct)

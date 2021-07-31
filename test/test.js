@@ -206,12 +206,12 @@ describe("Test lottery 2", function () {
 });
 
 describe("Other functions", function () {
-  it("Recover 0.8 LINK", async function () {
+  it("Recover 0.5 LINK", async function () {
     let oldBalance = await linkToken.balanceOf(signer.address);
-    let tx = await contract.recoverLINK((0.8e18).toString());
+    let tx = await contract.recoverLINK((0.5e18).toString());
     await tx.wait();
     expect(await linkToken.balanceOf(signer.address)).to.equal(
-      oldBalance.add(ethers.BigNumber.from((0.8e18).toString()))
+      oldBalance.add(ethers.BigNumber.from((0.5e18).toString()))
     );
   });
 
