@@ -3,8 +3,6 @@
 
 ### Contracts in "./contracts"
 
-### Interface in "./Interface"
-
 ## Requirements:
 Node.js
 
